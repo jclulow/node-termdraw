@@ -35,6 +35,105 @@ frame_cell_get(f, x, y)
 }
 
 function
+frame_create_row(w)
+{
+	var row = [];
+
+	while (row.length < w) {
+		row.push(new lib_cell.Cell());
+	}
+
+	return (row);
+}
+
+/*
+ * This function uses the Scrolling Region functionality of a video terminal to
+ * shift a set of lines down the page without needing to redraw all of them.
+ *
+ * We set the scrolling region around the lines in question and perform the
+ * (destructive) scroll.  Then, we update our memory of what's been drawn to
+ * the terminal accordingly.  Next time we go to draw, the moved lines will not
+ * be redrawn unless a subsequent operation further altered them.
+ */
+function
+frame_region_shift(f, y0, y1, n)
+{
+	mod_assert.number(y0, 'y0');
+	mod_assert.number(y1, 'y1');
+	mod_assert.number(n, 'n');
+
+	if (n === 0) {
+		return '';
+	}
+
+	/*
+	 * Set the Scrolling Region to the set of lines we wish to shift up or
+	 * down:
+	 */
+	var out = CSI + (y0 + 1) + ';' + (y1 + 1) + 'r';
+
+	if (n < 0) {
+		n = -n;
+
+		/*
+		 * Move the cursor to the top line in the scrolling region.
+		 */
+		out += CSI + (y0 + 1) + 'H';
+		for (var t = 0; t < n; t++) {
+			/*
+			 * Reverse Index (RI) moves the cursor up one line in
+			 * this column.  As we are at the top margin of the
+			 * scrolling region, all of the text will move down one
+			 * row for each RI.
+			 */
+			out += ESC + 'M';
+		}
+
+		/*
+		 * Trim the old rows from the bottom:
+		 */
+		f.f_rows.splice(y1, n);
+
+		/*
+		 * Add the new rows at the top:
+		 */
+		for (var t = 0; t < n; t++) {
+			f.f_rows.splice(y0, 0, frame_create_row(f.f_w));
+		}
+
+	} else {
+		out += CSI + (y1 + 1) + 'H';
+		for (var t = 0; t < n; t++) {
+			/*
+			 * The Index (IND) operation is similar to Reverse
+			 * Index, except it moves the cursor down -- text will
+			 * thus move _up_ the screen.
+			 */
+			out += ESC + 'D';
+		}
+
+		/*
+		 * Insert the new rows at the bottom:
+		 */
+		for (var t = 0; t < n; t++) {
+			f.f_rows.splice(y1 + n, 0, frame_create_row(f.f_w));
+		}
+
+		/*
+		 * Remove old rows from the top:
+		 */
+		f.f_rows.splice(y0, n);
+	}
+
+	/*
+	 * Reset the scrolling region to the entire terminal.
+	 */
+	out += CSI + 'r';
+
+	return (out);
+}
+
+function
 frame_create(w, h)
 {
 	var rows = [];
@@ -55,8 +154,7 @@ frame_create(w, h)
 		f_h: h,
 		f_x: 0,
 		f_y: 0,
-		f_rows: rows,
-		f_used: false
+		f_rows: rows
 	});
 }
 
@@ -119,7 +217,7 @@ height()
 	var self = this;
 
 	return (self.draw_screen.f_h);
-}
+};
 
 Draw.prototype.width = function
 width()
@@ -127,7 +225,7 @@ width()
 	var self = this;
 
 	return (self.draw_screen.f_w);
-}
+};
 
 Draw.prototype.redraw = function
 redraw(region)
@@ -140,9 +238,15 @@ redraw(region)
 	var last_col = null;
 	var contig = false;
 
-	var out = CSI + '0m';
+	var out = '';
 
-//	self.draw_term.reset();
+	var hint;
+	while ((hint = region.pop_hint()) !== null) {
+		out += frame_region_shift(self.draw_screen, hint.hint_y0,
+		    hint.hint_y1, hint.hint_n);
+	}
+
+	out += CSI + '0m';
 
 	/*
 	 * Draw every cell that has been updated:
@@ -152,6 +256,8 @@ redraw(region)
 		for (var x = 0; x < self.draw_screen.f_w; x++) {
 			var oc = frame_cell_get(self.draw_screen, x, y);
 			var nc = region.get_cell(x, y);
+
+			mod_assert.object(oc, 'oc (' + x + ', ' + y + ')');
 
 			if (!nc) {
 				nc = self.draw_default;
@@ -206,23 +312,16 @@ redraw(region)
 					out += CSI + (y + 1) + ';' + (x + 1) +
 					    'f';
 				}
-				//self.draw_term.moveto(x + 1, y + 1);
 			}
 
 			if (last_attr !== nc.c_attr) {
 				var attr_out = [ 0 ];
-				//out += CSI + '0m';
-				//self.draw_term.reset();
 
 				if (nc.c_attr & lib_cell.ATTR_BOLD) {
 					attr_out.push(1);
-					//out += CSI + '1m';
-					//self.draw_term.bold();
 				}
 				if (nc.c_attr & lib_cell.ATTR_INVERSE) {
 					attr_out.push(7);
-					//out += CSI + '7m';
-					//self.draw_term.reverse();
 				}
 
 				out += CSI + attr_out.join(';') + 'm';
@@ -230,21 +329,7 @@ redraw(region)
 				last_attr = nc.c_attr;
 			}
 
-			/*
-			if (last_fg !== nc.c_fg) {
-				self.draw_term.colour256(nc.c_fg,
-				    false);
-				last_fg = nc.c_fg;
-			}
-			if (last_bg !== nc.c_bg) {
-				self.draw_term.colour256(nc.c_bg,
-				    true);
-				last_bg = nc.c_bg;
-			}
-			*/
-
 			out += nc.c_c;
-			//self.draw_term.write(nc.c_c);
 			contig = true;
 			last_row = y;
 			last_col = x;
@@ -260,9 +345,6 @@ redraw(region)
 	out += CSI + '0m';
 
 	self.draw_term.write(out);
-
-	//self.draw_term.reset();
-	//self.draw_term.uncork();
 };
 
 module.exports = {
