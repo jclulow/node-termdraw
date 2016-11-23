@@ -90,23 +90,26 @@ Draw(options)
 
 	mod_events.EventEmitter.call(self);
 
-	mod_assert.object(options, 'options');
+	mod_assert.optionalObject(options, 'options');
+
+	self.draw_closed = false;
 
 	self.draw_default = new lib_cell.Cell();
 
 	self.draw_term = new mod_ansiterm.ANSITerm();
 	self.draw_term.clear();
 	self.draw_term.cursor(false);
-	self.draw_term.on('keypress', function (key) {
-		if (key === 'q'.charCodeAt(0)) {
-			self.draw_term.clear();
-			self.draw_term.moveto(1, 1);
-			process.exit(0);
+	self.draw_term.on('keypress', function (ch) {
+		if (self.draw_closed) {
+			return;
 		}
+
+		self.emit('keypress', ch);
 	});
 	self.draw_term.on('resize', function (sz) {
-		self.draw_h = sz.h;
-		self.draw_w = sz.w;
+		if (self.draw_closed) {
+			return;
+		}
 
 		/*
 		 * Create a new blank screen of the appropriate
@@ -114,23 +117,35 @@ Draw(options)
 		 */
 		self.draw_term.clear();
 		self.draw_screen = new lib_region.Region({
-			width: self.draw_w,
-			height: self.draw_h
+			width: sz.w,
+			height: sz.h
 		});
 
 		self.emit('resize');
 	});
 
 	var sz = self.draw_term.size();
-	self.draw_h = sz.h;
-	self.draw_w = sz.w;
-
 	self.draw_screen = new lib_region.Region({
-		width: self.draw_w,
-		height: self.draw_h
+		width: sz.w,
+		height: sz.h
 	});
 }
 mod_util.inherits(Draw, mod_events.EventEmitter);
+
+Draw.prototype.close = function
+close()
+{
+	var self = this;
+
+	if (self.draw_closed) {
+		return;
+	}
+	self.draw_closed = true;
+
+	self.draw_term.softReset();
+	self.draw_term.clear();
+	self.draw_term.moveto(1, 1);
+};
 
 Draw.prototype.height = function
 height()
@@ -152,10 +167,14 @@ Draw.prototype.redraw = function
 redraw(region)
 {
 	var self = this;
-	var last_attr = lib_cell.CELL_DEFAULT_ATTR;
+	var last_attr = null;
 	var last_row = null;
 	var last_col = null;
 	var contig = false;
+
+	if (self.draw_closed) {
+		return;
+	}
 
 	var out = '';
 
@@ -164,8 +183,6 @@ redraw(region)
 		out += draw_region_shift(self.draw_screen, hint.hint_y0,
 		    hint.hint_y1, hint.hint_n);
 	}
-
-	out += CSI + '0m';
 
 	/*
 	 * Draw every cell that has been updated:
@@ -233,6 +250,11 @@ redraw(region)
 				}
 			}
 
+			if (last_attr === null) {
+				last_attr = lib_cell.CELL_DEFAULT_ATTR;
+				out += CSI + '0m';
+			}
+
 			if (last_attr !== nc.c_attr) {
 				var attr_out = [ 0 ];
 
@@ -260,8 +282,6 @@ redraw(region)
 			oc.set_from(nc);
 		}
 	}
-
-	out += CSI + '0m';
 
 	self.draw_term.write(out);
 };
