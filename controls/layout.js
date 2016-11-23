@@ -101,7 +101,6 @@ _redo()
 	for (var i = 0; i < self.r_children.length; i++) {
 		var rc = self.r_children[i];
 		var weight = rc.rc_weight || 1;
-		var h;
 
 		rc.rc_x = borderw;
 		rc.rc_y = y + borderh;

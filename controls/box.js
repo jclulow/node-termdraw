@@ -7,8 +7,6 @@ var mod_util = require('util');
 var lib_draw = require('../draw');
 var lib_boxdraw = require('../lib/boxdraw');
 
-var lib_layout = require('../controls/layout');
-
 
 function
 Box(options)
