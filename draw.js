@@ -4,47 +4,14 @@ var mod_util = require('util');
 var mod_events = require('events');
 
 var mod_assert = require('assert-plus');
-var mod_extsprintf = require('extsprintf');
 var mod_ansiterm = require('ansiterm');
-var mod_linedraw = require('ansiterm/lib/linedraw');
-
-var sprintf = mod_extsprintf.sprintf;
-
-var LD = mod_linedraw.utf8;
 
 var lib_cell = require('./lib/cell');
 var lib_region = require('./lib/region');
 
-var FRAME_ID = 1;
-
 var ESC = '\u001b';
 var CSI = ESC + '[';
 
-
-function
-frame_cell_get(f, x, y)
-{
-	mod_assert.ok(x >= 0, 'x was negative (' + x + ')');
-	mod_assert.ok(y >= 0, 'y was negative (' + y + ')');
-	mod_assert.ok(y < f.f_h, 'y out of bounds (' + y + ' >= ' +
-	    f.f_h + ')');
-	mod_assert.ok(x < f.f_w, 'x out of bounds (' + x + ' >= ' +
-	    f.f_w + ')');
-
-	return (f.f_rows[y][x]);
-}
-
-function
-frame_create_row(w)
-{
-	var row = [];
-
-	while (row.length < w) {
-		row.push(new lib_cell.Cell());
-	}
-
-	return (row);
-}
 
 /*
  * This function uses the Scrolling Region functionality of a video terminal to
@@ -56,14 +23,21 @@ frame_create_row(w)
  * be redrawn unless a subsequent operation further altered them.
  */
 function
-frame_region_shift(f, y0, y1, n)
+draw_region_shift(r, y0, y1, n)
 {
 	mod_assert.number(y0, 'y0');
 	mod_assert.number(y1, 'y1');
 	mod_assert.number(n, 'n');
 
 	if (n === 0) {
-		return '';
+		return ('');
+	}
+
+	/*
+	 * Apply the update to the target region.
+	 */
+	for (var apply_n = 0; apply_n < Math.abs(n); apply_n++) {
+		r.shift_rows(y0, y1, n > 0 ? 1 : -1);
 	}
 
 	/*
@@ -89,18 +63,6 @@ frame_region_shift(f, y0, y1, n)
 			out += ESC + 'M';
 		}
 
-		/*
-		 * Trim the old rows from the bottom:
-		 */
-		f.f_rows.splice(y1, n);
-
-		/*
-		 * Add the new rows at the top:
-		 */
-		for (var t = 0; t < n; t++) {
-			f.f_rows.splice(y0, 0, frame_create_row(f.f_w));
-		}
-
 	} else {
 		out += CSI + (y1 + 1) + 'H';
 		for (var t = 0; t < n; t++) {
@@ -111,18 +73,6 @@ frame_region_shift(f, y0, y1, n)
 			 */
 			out += ESC + 'D';
 		}
-
-		/*
-		 * Insert the new rows at the bottom:
-		 */
-		for (var t = 0; t < n; t++) {
-			f.f_rows.splice(y1 + n, 0, frame_create_row(f.f_w));
-		}
-
-		/*
-		 * Remove old rows from the top:
-		 */
-		f.f_rows.splice(y0, n);
 	}
 
 	/*
@@ -131,41 +81,6 @@ frame_region_shift(f, y0, y1, n)
 	out += CSI + 'r';
 
 	return (out);
-}
-
-function
-frame_create(w, h)
-{
-	var rows = [];
-
-	while (rows.length < h) {
-		var col = [];
-
-		while (col.length < w) {
-			col.push(new lib_cell.Cell());
-		}
-
-		rows.push(col);
-	}
-
-	return ({
-		f_id: FRAME_ID++,
-		f_w: w,
-		f_h: h,
-		f_x: 0,
-		f_y: 0,
-		f_rows: rows
-	});
-}
-
-function
-frame_clear(f)
-{
-	for (var y = 0; y < f.f_h; y++) {
-		for (var x = 0; x < f.f_w; x++) {
-			f.f_rows[y][x].clear();
-		}
-	}
 }
 
 function
@@ -198,7 +113,10 @@ Draw(options)
 		 * size.
 		 */
 		self.draw_term.clear();
-		self.draw_screen = frame_create(self.draw_w, self.draw_h);
+		self.draw_screen = new lib_region.Region({
+			width: self.draw_w,
+			height: self.draw_h
+		});
 
 		self.emit('resize');
 	});
@@ -207,7 +125,10 @@ Draw(options)
 	self.draw_h = sz.h;
 	self.draw_w = sz.w;
 
-	self.draw_screen = frame_create(self.draw_w, self.draw_h);
+	self.draw_screen = new lib_region.Region({
+		width: self.draw_w,
+		height: self.draw_h
+	});
 }
 mod_util.inherits(Draw, mod_events.EventEmitter);
 
@@ -216,7 +137,7 @@ height()
 {
 	var self = this;
 
-	return (self.draw_screen.f_h);
+	return (self.draw_screen.height());
 };
 
 Draw.prototype.width = function
@@ -224,15 +145,13 @@ width()
 {
 	var self = this;
 
-	return (self.draw_screen.f_w);
+	return (self.draw_screen.width());
 };
 
 Draw.prototype.redraw = function
 redraw(region)
 {
 	var self = this;
-	var last_fg = lib_cell.CELL_DEFAULT_FG;
-	var last_bg = lib_cell.CELL_DEFAULT_BG;
 	var last_attr = lib_cell.CELL_DEFAULT_ATTR;
 	var last_row = null;
 	var last_col = null;
@@ -242,7 +161,7 @@ redraw(region)
 
 	var hint;
 	while ((hint = region.pop_hint()) !== null) {
-		out += frame_region_shift(self.draw_screen, hint.hint_y0,
+		out += draw_region_shift(self.draw_screen, hint.hint_y0,
 		    hint.hint_y1, hint.hint_n);
 	}
 
@@ -252,9 +171,9 @@ redraw(region)
 	 * Draw every cell that has been updated:
 	 */
 	var redo = false;
-	for (var y = 0; y < self.draw_screen.f_h; y++) {
-		for (var x = 0; x < self.draw_screen.f_w; x++) {
-			var oc = frame_cell_get(self.draw_screen, x, y);
+	for (var y = 0; y < self.draw_screen.height(); y++) {
+		for (var x = 0; x < self.draw_screen.width(); x++) {
+			var oc = self.draw_screen.get_cell(x, y);
 			var nc = region.get_cell(x, y);
 
 			mod_assert.object(oc, 'oc (' + x + ', ' + y + ')');
