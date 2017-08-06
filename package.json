@@ -2,9 +2,16 @@
   "name": "termdraw",
   "version": "0.0.0",
   "description": "terminal drawing library",
-  "main": "draw.js",
+  "main": "lib/index.js",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/jclulow/node-termdraw.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jclulow/node-termdraw/issues"
+  },
   "dependencies": {
-    "ansiterm": "^0.0.2",
+    "ansiterm": "^1.0.0",
     "assert-plus": "^1.0.0",
     "extsprintf": "^1.3.0"
   },
