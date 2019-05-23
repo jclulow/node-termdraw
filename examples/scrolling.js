@@ -97,6 +97,9 @@ draw.on('control', function (info) {
 	case '^L':
 		redraw(true);
 		break;
+	case '^Z':
+		draw.suspend(redraw);
+		break;
 	default:
 		break;
 	}

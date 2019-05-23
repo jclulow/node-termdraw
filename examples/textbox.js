@@ -313,6 +313,9 @@ Editor.prototype.control = function control(info) {
 	case '^L':
 		this.redraw(true);
 		break;
+	case '^Z':
+		this.draw.suspend(this.screen);
+		break;
 	default:
 		break;
 	}

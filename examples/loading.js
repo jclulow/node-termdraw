@@ -54,6 +54,9 @@ draw.on('control', function (info) {
 	case '^C':
 		quit(0);
 		break;
+	case '^Z':
+		draw.suspend(screen);
+		break;
 	default:
 		break;
 	}

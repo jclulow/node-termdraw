@@ -148,6 +148,9 @@ FolderBrowser.prototype.control = function control(info) {
 		this.warn('');
 		this.redraw(true);
 		break;
+	case '^Z':
+		this.draw.suspend(this.screen);
+		break;
 	default:
 		this.warn('No action for ' + info.key);
 		break;

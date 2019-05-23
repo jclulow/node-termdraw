@@ -84,6 +84,9 @@ draw.on('control', function (info) {
 	case '^L':
 		redraw(true);
 		break;
+	case '^Z':
+		draw.suspend(screen);
+		break;
 	default:
 		break;
 	}

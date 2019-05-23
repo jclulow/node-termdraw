@@ -167,6 +167,9 @@ draw.on('control', function (info) {
 		warn('');
 		redraw(true);
 		break;
+	case '^Z':
+		draw.suspend(screen);
+		break;
 	default:
 		warn('No action for ' + info.key);
 		break;

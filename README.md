@@ -56,6 +56,18 @@ may cause display issues. In this case, the optional boolean `refresh` can be
 passed to force a full redraw of the screen. Some applications may wish to bind
 this behaviour to `^L`.
 
+### `Draw#pause(screen, action)`
+
+Tear down the current TUI state, and call the function `action(cb)`. The
+`action` function can then do whatever activity it needs to perform (e.g., run
+a shell). Once finished, it should call `cb`, which will take care of redrawing
+`screen`, and reenabling the `Draw` instance.
+
+### `Draw#suspend(screen)`
+
+Suspend the current process, and, once it resumes, do a full redraw of `screen`.
+Some applications may wish to find this behaviour to `^Z`.
+
 ## `new Region(opts)`
 
 A `Region` represents a grid of cells and their configured states.
