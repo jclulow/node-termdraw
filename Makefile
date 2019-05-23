@@ -16,7 +16,7 @@
 # Files
 #
 
-JS_FILES	:= $(shell find lib test -name '*.js')
+JS_FILES	:= $(shell find lib test examples -name '*.js')
 JSSTYLE_FILES	= $(JS_FILES)
 JSSTYLE_FLAGS	= -f tools/jsstyle.conf
 ESLINT		= ./node_modules/.bin/eslint

@@ -10,6 +10,13 @@
   "bugs": {
     "url": "https://github.com/jclulow/node-termdraw/issues"
   },
+  "keywords": [
+    "terminal",
+    "curses",
+    "ncurses",
+    "tui",
+    "tty"
+  ],
   "dependencies": {
     "ansiterm": "^1.0.0",
     "assert-plus": "^1.0.0",
