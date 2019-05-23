@@ -1,7 +1,7 @@
 {
   "name": "termdraw",
-  "version": "1.0.0",
-  "description": "terminal drawing library",
+  "version": "2.0.0",
+  "description": "Terminal drawing library",
   "main": "lib/index.js",
   "repository": {
     "type": "git",
