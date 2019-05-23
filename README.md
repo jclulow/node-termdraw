@@ -96,15 +96,24 @@ method returns `null`, then a cursor will not be drawn within the `Region`.
 Updates the cell at (x, y) to contain the character `ch`. The optional
 `format` argument specifies how the cell should be formatted.
 
+This method returns how many columns the written character will occupy within
+the `Region`. For many characters, this will just be `1`. When writing wide
+characters though (e.g. CJK characters and emoji), this will be `2`. When
+writing to coordinates outside of the `Region`, this will return `0`.
+
 ### `Region#str(x, y, str, format)`
 
 Writes the characters in `str` horizontally start at position (x, y). `format`
 specifies attributes for each of the cells that the characters are written to.
 
+This method returns how many columns the string will occupy within the `Region`.
+
 ### `Region#vstr(x, y, str, format)`
 
 Writes the characters in `str` vertically start at position (x, y). `format`
 specifies attributes for each of the cells that the characters are written to.
+
+This method returns how many rows the string occupies within the `Region`.
 
 ## Controls
 
@@ -226,6 +235,7 @@ children, and possibly replace them with new ones.
 - [examples/scrolling.js](examples/textbox.js): This example shows how to use the `LogBox`.
 - [examples/textbox.js](examples/textbox.js): This example shows how to create a simple box for entering text.
 - [examples/commander.js](examples/commander.js): This example shows how to create an [mc](https://en.wikipedia.org/wiki/Midnight_Commander)-like application.
+- [examples/unicode.js](examples/unicode.js): This example demonstrates the behaviour of multi-column and multi-byte characters.
 
 ## License
 
