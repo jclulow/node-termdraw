@@ -35,6 +35,10 @@ Restore the terminal to its state from before initializing `Draw`. The consuming
 application should make sure to call this before exiting, so that the users can
 return to a normal terminal state.
 
+### `Draw#bell()`
+
+Ring the terminal bell.
+
 ### `Draw#height()`
 
 Fetch the number of terminal rows.
